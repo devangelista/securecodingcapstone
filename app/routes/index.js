@@ -8,7 +8,49 @@ const ResearchHandler = require("./research");
 const {
     environmentalScripts
 } = require("../../config/config");
+const rateLimit = require("express-rate-limit");
 const ErrorHandler = require("./error").errorHandler;
+
+const LEARNING_RESOURCE_URL = "https://www.khanacademy.org/economics-finance-domain/core-finance/investment-vehicles-tutorial/ira-401ks/v/traditional-iras";
+
+const tutorialTemplate = (page) => {
+    switch (page) {
+    case "a1":
+        return "tutorial/a1";
+    case "a2":
+        return "tutorial/a2";
+    case "a3":
+        return "tutorial/a3";
+    case "a4":
+        return "tutorial/a4";
+    case "a5":
+        return "tutorial/a5";
+    case "a6":
+        return "tutorial/a6";
+    case "a7":
+        return "tutorial/a7";
+    case "a8":
+        return "tutorial/a8";
+    case "a9":
+        return "tutorial/a9";
+    case "a10":
+        return "tutorial/a10";
+    case "redos":
+        return "tutorial/redos";
+    case "ssrf":
+        return "tutorial/ssrf";
+    case "layout":
+        return "tutorial/layout";
+    default:
+        return "";
+    }
+};
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: "Too many login attempts. Please try again later."
+});
 
 const index = (app, db) => {
 
@@ -33,7 +75,7 @@ const index = (app, db) => {
 
     // Login form
     app.get("/login", sessionHandler.displayLoginPage);
-    app.post("/login", sessionHandler.handleLoginRequest);
+    app.post("/login", loginLimiter, sessionHandler.handleLoginRequest);
 
     // Signup form
     app.get("/signup", sessionHandler.displaySignupPage);
@@ -54,8 +96,8 @@ const index = (app, db) => {
     app.post("/contributions", isLoggedIn, contributionsHandler.handleContributionsUpdate);
 
     // Benefits Page
-    app.get("/benefits", isLoggedIn, benefitsHandler.displayBenefits);
-    app.post("/benefits", isLoggedIn, benefitsHandler.updateBenefits);
+    app.get("/benefits", isLoggedIn, isAdmin, benefitsHandler.displayBenefits);
+    app.post("/benefits", isLoggedIn, isAdmin, benefitsHandler.updateBenefits);
     /* Fix for A7 - checks user role to implement  Function Level Access Control
      app.get("/benefits", isLoggedIn, isAdmin, benefitsHandler.displayBenefits);
      app.post("/benefits", isLoggedIn, isAdmin, benefitsHandler.updateBenefits);
@@ -70,8 +112,10 @@ const index = (app, db) => {
 
     // Handle redirect for learning resources link
     app.get("/learn", isLoggedIn, (req, res) => {
-        // Insecure way to handle redirects by taking redirect url from query string
-        return res.redirect(req.query.url);
+        if (req.query.url === LEARNING_RESOURCE_URL) {
+            return res.redirect(LEARNING_RESOURCE_URL);
+        }
+        return res.redirect("/dashboard");
     });
 
     // Handle redirect for learning resources link
@@ -82,10 +126,11 @@ const index = (app, db) => {
     });
 
     app.get("/tutorial/:page", (req, res) => {
-        const {
-            page
-        } = req.params
-        return res.render(`tutorial/${page}`, {
+        const template = tutorialTemplate(req.params.page);
+        if (!template) {
+            return res.redirect("/tutorial");
+        }
+        return res.render(template, {
             environmentalScripts
         });
     });

@@ -661,8 +661,6 @@
       $element = $(element);
       $background = $("<div/>");
       offset = $element.offset();
-      offset.top = offset.top;
-      offset.left = offset.left;
       $background.width($element.innerWidth()).height($element.innerHeight()).addClass("tour-step-background").offset(offset);
       $element.addClass("tour-step-backdrop");
       $("body").append($background);

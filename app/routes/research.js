@@ -1,4 +1,3 @@
-const ResearchDAO = require("../data/research-dao").ResearchDAO;
 const needle = require("needle");
 const {
     environmentalScripts
@@ -7,12 +6,14 @@ const {
 function ResearchHandler(db) {
     "use strict";
 
-    const researchDAO = new ResearchDAO(db);
+    // The handler is constructed with a database connection for consistency with the other routes.
+    this.db = db;
 
     this.displayResearch = (req, res) => {
 
-        if (req.query.symbol) {
-            const url = req.query.url + req.query.symbol;
+        const symbol = req.query.symbol;
+        if (typeof symbol === "string" && /^[A-Za-z0-9.\-]{1,12}$/.test(symbol)) {
+            const url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(symbol);
             return needle.get(url, (error, newResponse, body) => {
                 if (!error && newResponse.statusCode === 200) {
                     res.writeHead(200, {

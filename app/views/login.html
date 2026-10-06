@@ -104,7 +104,7 @@
 
 
 
-                            <form method="post" role="form" method="post" id="loginform">
+                            <form method="post" role="form" id="loginform">
                                 <div class="form-group">
                                     <label for="userName">User Name (user1)</label>
                                     <input type="text" class="form-control" id="userName" name="userName" value="{{userName}}" placeholder="Enter User Name">
@@ -117,7 +117,7 @@
                                 <input type="hidden" name="_csrf" value="{{csrftoken}}" />
 
                                 <div class="row">
-                                    <div class="col-lg-4"><a href="/login">New user? Sign Up</a>
+                                    <div class="col-lg-4"><a href="/signup">New user? Sign Up</a>
                                     </div>
                                     <div class="col-lg-5"></div>
                                     <div class="col-lg-3">
@@ -155,7 +155,7 @@
         // try to set a test cookie if we can't see any cookies and we're using
         // either a browser that doesn't support navigator.cookieEnabled
         // or IE (which always returns true for navigator.cookieEnabled)
-        if (!document.cookie && cookieEnabled === null) {
+        if (!document.cookie) {
             document.cookie = "testcookie=1";
 
             if (!document.cookie) return false;

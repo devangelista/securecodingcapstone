@@ -1,6 +1,6 @@
 "use strict";
 
-var exec = require("child_process").exec;
+var spawn = require("child_process").spawn;
 
 var JS_FILES = ["Gruntfile.js", "app/assets/js/**", "config/config.js", "app/data/**/*.js",
     "app/routes/**/*.js", "server.js", "test/**/*.js"
@@ -148,25 +148,33 @@ module.exports = function(grunt) {
     grunt.option("force", true);
 
     grunt.registerTask("db-reset", "(Re)init the database.", function(arg) {
-        var finalEnv = process.env.NODE_ENV || arg || "development";
-        var done;
+        var requested = arg || "development";
+        var finalEnv = requested === "production" || requested === "test" ? requested : "development";
+        var done = this.async();
+        var child = spawn(process.execPath, ["artifacts/db-reset.js"], {
+            env: Object.assign({}, process.env, {
+                NODE_ENV: finalEnv
+            }),
+            shell: false
+        });
+        var stdout = "";
+        var stderr = "";
 
-        done = this.async();
-        var cmd = process.platform === "win32" ? "NODE_ENV=" + finalEnv + " & " : "NODE_ENV=" + finalEnv + " ";
-
-        exec(
-            cmd + "node artifacts/db-reset.js",
-            function(err, stdout, stderr) {
-                if (err) {
-                    grunt.log.error("db-reset:");
-                    grunt.log.error(err);
-                    grunt.log.error(stderr);
-                } else {
-                    grunt.log.ok(stdout);
-                }
-                done();
+        child.stdout.on("data", function(chunk) {
+            stdout += chunk;
+        });
+        child.stderr.on("data", function(chunk) {
+            stderr += chunk;
+        });
+        child.on("close", function(code) {
+            if (code) {
+                grunt.log.error("db-reset:");
+                grunt.log.error(stderr);
+            } else {
+                grunt.log.ok(stdout);
             }
-        );
+            done();
+        });
     });
 
     // Code Validation, beautification task(s).

@@ -11,17 +11,10 @@ function ResearchDAO(db) {
     }
 
     this.getBySymbol = (symbol, callback) => {
-
-        const searchCriteria = () => {
-
-            if (symbol) {
-                console.log("in if symbol");
-                return {
-                    symbol
-                };
-            }
+        if (typeof callback === "function") {
+            callback(null, symbol ? { symbol: symbol } : null);
         }
-    }
+    };
 }
 
 module.exports = { ResearchDAO };

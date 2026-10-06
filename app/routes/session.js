@@ -55,11 +55,10 @@ function SessionHandler(db) {
         } = req.body
         userDAO.validateLogin(userName, password, (err, user) => {
             const errorMessage = "Invalid username and/or password";
-            const invalidUserNameErrorMessage = "Invalid username";
-            const invalidPasswordErrorMessage = "Invalid password";
             if (err) {
                 if (err.noSuchUser) {
-                    console.log('Error: attempt to login with invalid user: ', userName);
+                    const safeUserName = String(userName == null ? "" : userName).replace(/\r/g, "").replace(/\n/g, "");
+                    console.log("Error: attempt to login with invalid user: ", safeUserName);
 
                     // Fix for A1 - 3 Log Injection - encode/sanitize input for CRLF Injection
                     // that could result in log forging:
@@ -76,18 +75,14 @@ function SessionHandler(db) {
                     return res.render("login", {
                         userName: userName,
                         password: "",
-                        loginError: invalidUserNameErrorMessage,
-                        //Fix for A2-2 Broken Auth - Uses identical error for both username, password error
-                        // loginError: errorMessage
+                        loginError: errorMessage,
                         environmentalScripts
                     });
                 } else if (err.invalidPassword) {
                     return res.render("login", {
                         userName: userName,
                         password: "",
-                        loginError: invalidPasswordErrorMessage,
-                        //Fix for A2-2 Broken Auth - Uses identical error for both username, password error
-                        // loginError: errorMessage
+                        loginError: errorMessage,
                         environmentalScripts
                     });
                 } else {
@@ -107,8 +102,11 @@ function SessionHandler(db) {
             // by wrapping the below code as a function callback for the method req.session.regenerate()
             // i.e:
             // `req.session.regenerate(() => {})`
-            req.session.userId = user._id;
-            return res.redirect(user.isAdmin ? "/benefits" : "/dashboard")
+            return req.session.regenerate((regenErr) => {
+                if (regenErr) return next(regenErr);
+                req.session.userId = user._id;
+                return res.redirect(user.isAdmin ? "/benefits" : "/dashboard");
+            });
         });
     };
 
@@ -129,18 +127,40 @@ function SessionHandler(db) {
         });
     };
 
+    const isStrongPassword = (password) => {
+        if (typeof password !== "string" || password.length < 8 || password.length > 18) {
+            return false;
+        }
+        let hasDigit = false;
+        let hasLower = false;
+        let hasUpper = false;
+        for (let i = 0; i < password.length; i++) {
+            const c = password.charAt(i);
+            if (c >= "0" && c <= "9") hasDigit = true;
+            else if (c >= "a" && c <= "z") hasLower = true;
+            else if (c >= "A" && c <= "Z") hasUpper = true;
+        }
+        return hasDigit && hasLower && hasUpper;
+    };
+
+    const isValidEmail = (email) => {
+        if (typeof email !== "string" || email.length > 254 || email.indexOf(" ") !== -1) {
+            return false;
+        }
+        const at = email.indexOf("@");
+        if (at <= 0 || at !== email.lastIndexOf("@")) {
+            return false;
+        }
+        const domain = email.slice(at + 1);
+        const dot = domain.lastIndexOf(".");
+        return dot > 0 && dot < domain.length - 1;
+    };
+
     const validateSignup = (userName, firstName, lastName, password, verify, email, errors) => {
 
-        const USER_RE = /^.{1,20}$/;
-        const FNAME_RE = /^.{1,100}$/;
-        const LNAME_RE = /^.{1,100}$/;
-        const EMAIL_RE = /^[\S]+@[\S]+\.[\S]+$/;
-        const PASS_RE = /^.{1,20}$/;
-        /*
-        //Fix for A2-2 - Broken Authentication -  requires stronger password
-        //(at least 8 characters with numbers and both lowercase and uppercase letters.)
-        const PASS_RE =/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
-        */
+        const USER_RE = /^[A-Za-z0-9]{1,20}$/;
+        const FNAME_RE = /^[A-Za-z0-9 .'-]{1,100}$/;
+        const LNAME_RE = /^[A-Za-z0-9 .'-]{1,100}$/;
 
         errors.userNameError = "";
         errors.firstNameError = "";
@@ -162,7 +182,7 @@ function SessionHandler(db) {
             errors.lastNameError = "Invalid last name.";
             return false;
         }
-        if (!PASS_RE.test(password)) {
+        if (!isStrongPassword(password)) {
             errors.passwordError = "Password must be 8 to 18 characters" +
                 " including numbers, lowercase and uppercase letters.";
             return false;
@@ -172,13 +192,13 @@ function SessionHandler(db) {
             return false;
         }
         if (email !== "") {
-            if (!EMAIL_RE.test(email)) {
+            if (!isValidEmail(email)) {
                 errors.emailError = "Invalid email address";
                 return false;
             }
         }
         return true;
-    }
+    };
 
     this.handleSignup = (req, res, next) => {
 

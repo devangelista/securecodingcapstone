@@ -4,3 +4,5 @@ docker-compose.yml
 .git
 .github
 .gitignore
+codeql-db
+*.sarif

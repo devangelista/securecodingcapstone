@@ -22,12 +22,7 @@ function UserDAO(db) {
             firstName,
             lastName,
             benefitStartDate: this.getRandomFutureDate(),
-            password //received from request param
-            /*
-            // Fix for A2-1 - Broken Auth
-            // Stores password  in a safer way using one way encryption and salt hashing
             password: bcrypt.hashSync(password, bcrypt.genSaltSync())
-            */
         };
 
         // Add email if set
@@ -57,14 +52,9 @@ function UserDAO(db) {
     this.validateLogin = (userName, password, callback) => {
 
         // Helper function to compare passwords
-        const comparePassword = (fromDB, fromUser) => {
-            return fromDB === fromUser;
-            /*
-            // Fix for A2-Broken Auth
-            // compares decrypted password stored in this.addUser()
-            return bcrypt.compareSync(fromDB, fromUser);
-            */
-        }
+        const comparePassword = (fromUser, fromDB) => {
+            return bcrypt.compareSync(fromUser, fromDB);
+        };
 
         // Callback to pass to MongoDB that validates a user document
         const validateUserDoc = (err, user) => {
@@ -88,6 +78,12 @@ function UserDAO(db) {
             }
         }
 
+        if (typeof userName !== "string" || typeof password !== "string") {
+            const noSuchUserError = new Error("Invalid username");
+            noSuchUserError.noSuchUser = true;
+            return callback(noSuchUserError, null);
+        }
+
         usersCol.findOne({
             userName: userName
         }, validateUserDoc);
@@ -101,6 +97,9 @@ function UserDAO(db) {
     };
 
     this.getUserByUserName = (userName, callback) => {
+        if (typeof userName !== "string") {
+            return callback(null, null);
+        }
         usersCol.findOne({
             userName: userName
         }, callback);

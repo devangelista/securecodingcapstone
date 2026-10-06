@@ -9,6 +9,7 @@ const swig = require("swig");
 const MongoClient = require("mongodb").MongoClient; // Driver for connecting to MongoDB
 const http = require("http");
 const marked = require("marked");
+const csrf = require("csurf");
 const app = express(); // Web framework to handle routing requests
 const routes = require("./app/routes");
 const { port, db, cookieSecret } = require("./config/config"); // Application config properties
@@ -32,14 +33,29 @@ MongoClient.connect(db, (err, db) => {
         extended: false
     }));
 
+    // Trust the platform proxy so Secure cookies work behind HTTPS load balancers.
+    app.set("trust proxy", 1);
+
     // Enable session management using express middleware
     app.use(session({
         secret: cookieSecret,
         // Both mandatory in Express v4
         saveUninitialized: true,
-        resave: true
-
+        resave: true,
+        cookie: {
+            httpOnly: true,
+            // "auto" sets Secure only on HTTPS, so local http://localhost keeps the session cookie.
+            secure: "auto",
+            sameSite: "lax"
+        }
     }));
+
+    // CSRF protection for cookie-backed sessions. Tokens are exposed to templates as csrftoken.
+    app.use(csrf());
+    app.use((req, res, next) => {
+        res.locals.csrftoken = req.csrfToken();
+        next();
+    });
 
     // Register templating engine
     app.engine(".html", consolidate.swig);

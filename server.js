@@ -44,7 +44,8 @@ MongoClient.connect(db, (err, db) => {
         resave: true,
         cookie: {
             httpOnly: true,
-            secure: true,
+            // "auto" sets Secure only on HTTPS, so local http://localhost keeps the session cookie.
+            secure: "auto",
             sameSite: "lax"
         }
     }));

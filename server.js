@@ -12,9 +12,10 @@ const marked = require("marked");
 const csrf = require("csurf");
 const app = express(); // Web framework to handle routing requests
 const routes = require("./app/routes");
+const { resetDatabase } = require("./artifacts/db-reset");
 const { port, db, cookieSecret } = require("./config/config"); // Application config properties
 
-MongoClient.connect(db).then((client) => {
+resetDatabase().then(() => MongoClient.connect(db)).then((client) => {
     const database = client.db();
     console.log(`Connected to the database`);
 
@@ -76,7 +77,7 @@ MongoClient.connect(db).then((client) => {
     });
 
     // HTTP connection
-    http.createServer(app).listen(port, () => {
+    http.createServer(app).listen(port, "0.0.0.0", () => {
         console.log(`Express http server listening on port ${port}`);
     });
 

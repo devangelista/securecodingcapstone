@@ -16,4 +16,4 @@ COPY --chown=node . $WORKDIR
 # Then all further actions including running the containers should be done under non-root user.
 USER $USER
 EXPOSE 4000
-CMD ["sh", "-c", "node artifacts/db-reset.js && node server.js"]
+CMD ["node", "server.js"]

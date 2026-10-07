@@ -133,11 +133,22 @@ const resetDatabase = async () => {
 
     console.log("Database reset performed successfully");
     await client.close();
-    process.exit(0);
 };
 
-resetDatabase().catch((err) => {
-    console.log("ERROR: reset");
-    console.log(JSON.stringify(err));
-    process.exit(1);
-});
+module.exports = { resetDatabase };
+
+if (require.main === module) {
+    resetDatabase().then(() => {
+        // Render does not run the Docker Command through a shell, so
+        // "node artifacts/db-reset.js && node server.js" never reaches server.js.
+        if (process.argv.indexOf("&&") !== -1) {
+            require("../server.js");
+            return;
+        }
+        process.exit(0);
+    }).catch((err) => {
+        console.log("ERROR: reset");
+        console.log(JSON.stringify(err));
+        process.exit(1);
+    });
+}

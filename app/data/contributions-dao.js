@@ -25,40 +25,32 @@ function ContributionsDAO(db) {
             roth: roth
         };
 
-        contributionsDB.update({
+        contributionsDB.replaceOne({
             userId
             },
             contributions, {
                 upsert: true
-            },
-            err => {
-                if (!err) {
-                    console.log("Updated contributions");
-                    // add user details
-                    userDAO.getUserById(parsedUserId, (err, user) => {
-
-                        if (err) return callback(err, null);
-
-                        contributions.userName = user.userName;
-                        contributions.firstName = user.firstName;
-                        contributions.lastName = user.lastName;
-                        contributions.userId = userId;
-
-                        return callback(null, contributions);
-                    });
-                } else {
-                    return callback(err, null);
-                }
             }
-        );
+        ).then(() => {
+            console.log("Updated contributions");
+            userDAO.getUserById(parsedUserId, (err, user) => {
+
+                if (err) return callback(err, null);
+
+                contributions.userName = user.userName;
+                contributions.firstName = user.firstName;
+                contributions.lastName = user.lastName;
+                contributions.userId = userId;
+
+                return callback(null, contributions);
+            });
+        }).catch((err) => callback(err, null));
     };
 
     this.getByUserId = (userId, callback) => {
         contributionsDB.findOne({
                 userId: userId
-            },
-            (err, contributions) => {
-                if (err) return callback(err, null);
+            }).then((contributions) => {
 
                 // Set defualt contributions if not set
                 contributions = contributions || {
@@ -79,7 +71,7 @@ function ContributionsDAO(db) {
                     callback(null, contributions);
                 });
             }
-        );
+        ).catch((err) => callback(err, null));
     };
 }
 

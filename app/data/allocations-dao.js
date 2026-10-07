@@ -26,32 +26,25 @@ const AllocationsDAO = function(db){
             bonds: bonds
         };
 
-        allocationsCol.update({
+        allocationsCol.replaceOne({
             userId: parsedUserId
         }, allocations, {
             upsert: true
-        }, err => {
+        }).then(() => {
+            console.log("Updated allocations");
 
-            if (!err) {
+            userDAO.getUserById(userId, (err, user) => {
 
-                console.log("Updated allocations");
+                if (err) return callback(err, null);
 
-                userDAO.getUserById(userId, (err, user) => {
+                allocations.userId = userId;
+                allocations.userName = user.userName;
+                allocations.firstName = user.firstName;
+                allocations.lastName = user.lastName;
 
-                    if (err) return callback(err, null);
-
-                    // add user details
-                    allocations.userId = userId;
-                    allocations.userName = user.userName;
-                    allocations.firstName = user.firstName;
-                    allocations.lastName = user.lastName;
-
-                    return callback(null, allocations);
-                });
-            }
-
-            return callback(err, null);
-        });
+                return callback(null, allocations);
+            });
+        }).catch((err) => callback(err, null));
     };
 
     this.getByUserIdAndThreshold = (userId, threshold, callback) => {
@@ -82,8 +75,7 @@ const AllocationsDAO = function(db){
             };
         }
 
-        allocationsCol.find(searchCriteria()).toArray((err, allocations) => {
-            if (err) return callback(err, null);
+        allocationsCol.find(searchCriteria()).toArray().then((allocations) => {
             if (!allocations.length) return callback(null, []);
 
             let doneCounter = 0;
@@ -105,7 +97,7 @@ const AllocationsDAO = function(db){
                     }
                 });
             });
-        });
+        }).catch((err) => callback(err, null));
     };
 
 }

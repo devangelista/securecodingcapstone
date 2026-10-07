@@ -39,15 +39,13 @@ const USERS_TO_INSERT = [
         //"password" : "$2a$10$Tlx2cNv15M0Aia7wyItjsepeA8Y6PyBYaNdQqvpxkIUlcONf1ZHyq", // User2_123
     }];
 
-const tryDropCollection = (db, name) => {
-    return new Promise((resolve, reject) => {
-        db.dropCollection(name, (err, data) => {
-            if (!err) {
-                console.log(`Dropped collection: ${name}`);
-            }
-            resolve(undefined);
-        });
-    });
+const tryDropCollection = async (database, name) => {
+    try {
+        await database.dropCollection(name);
+        console.log(`Dropped collection: ${name}`);
+    } catch (err) {
+        // A missing collection is expected on the first seed.
+    }
 }
 
 const parseResponse = (err, res, comm) => {
@@ -62,15 +60,18 @@ const parseResponse = (err, res, comm) => {
 }
 
 
-// Starting here
-MongoClient.connect(db, (err, db) =>  {
-    if (err) {
+const resetDatabase = async () => {
+    const client = new MongoClient(db);
+    try {
+        await client.connect();
+    } catch (err) {
         console.log("ERROR: connect");
         console.log(JSON.stringify(err));
         process.exit(1);
     }
     console.log("Connected to the database");
 
+    const database = client.db();
     const collectionNames = [
         "users",
         "allocations",
@@ -79,60 +80,64 @@ MongoClient.connect(db, (err, db) =>  {
         "counters"
     ];
 
-    // remove existing data (if any), we don't want to look for errors here
     console.log("Dropping existing collections");
-    const dropPromises = collectionNames.map((name) => tryDropCollection(db, name));
+    await Promise.all(collectionNames.map((name) => tryDropCollection(database, name)));
 
-    // Wait for all drops to finish (or fail) before continuing
-    Promise.all(dropPromises).then(() => {
-        const usersCol = db.collection("users");
-        const allocationsCol = db.collection("allocations");
-        const countersCol = db.collection("counters");
+    const usersCol = database.collection("users");
+    const allocationsCol = database.collection("allocations");
+    const countersCol = database.collection("counters");
 
-        // reset unique id counter
-        countersCol.insert({
+    try {
+        const counterResult = await countersCol.insertOne({
             _id: "userId",
             seq: 3
-        }, (err, data) => {
-            parseResponse(err, data, "countersCol.insert");
         });
+        parseResponse(null, counterResult, "countersCol.insert");
+    } catch (err) {
+        parseResponse(err, null, "countersCol.insert");
+    }
 
-        // insert admin and test users
-        console.log("Users to insert:");
-        USERS_TO_INSERT.forEach((user) => console.log(JSON.stringify(user)));
+    console.log("Users to insert:");
+    USERS_TO_INSERT.forEach((user) => console.log(JSON.stringify(user)));
 
-        usersCol.insertMany(USERS_TO_INSERT, (err, data) => {
-            const finalAllocations = [];
+    let userResult;
+    try {
+        userResult = await usersCol.insertMany(USERS_TO_INSERT);
+    } catch (err) {
+        console.log("ERROR: insertMany");
+        console.log(JSON.stringify(err));
+        process.exit(1);
+    }
+    parseResponse(null, userResult, "users.insertMany");
 
-            // We can't continue if error here
-            if (err) {
-                console.log("ERROR: insertMany");
-                console.log(JSON.stringify(err));
-                process.exit(1);
-            }
-            parseResponse(err, data, "users.insertMany");
-
-            data.ops.forEach((user) => {
-                const stocks = Math.floor((Math.random() * 40) + 1);
-                const funds = Math.floor((Math.random() * 40) + 1);
-
-                finalAllocations.push({
-                    userId: user._id,
-                    stocks: stocks,
-                    funds: funds,
-                    bonds: 100 - (stocks + funds)
-                });
-            });
-
-            console.log("Allocations to insert:");
-            finalAllocations.forEach(allocation => console.log(JSON.stringify(allocation)));
-
-            allocationsCol.insertMany(finalAllocations, (err, data) => {
-                parseResponse(err, data, "allocations.insertMany");
-                console.log("Database reset performed successfully")
-                process.exit(0);
-            });
-
-        });
+    const finalAllocations = USERS_TO_INSERT.map((user) => {
+        const stocks = Math.floor((Math.random() * 40) + 1);
+        const funds = Math.floor((Math.random() * 40) + 1);
+        return {
+            userId: user._id,
+            stocks: stocks,
+            funds: funds,
+            bonds: 100 - (stocks + funds)
+        };
     });
+
+    console.log("Allocations to insert:");
+    finalAllocations.forEach(allocation => console.log(JSON.stringify(allocation)));
+
+    try {
+        const allocationResult = await allocationsCol.insertMany(finalAllocations);
+        parseResponse(null, allocationResult, "allocations.insertMany");
+    } catch (err) {
+        parseResponse(err, null, "allocations.insertMany");
+    }
+
+    console.log("Database reset performed successfully");
+    await client.close();
+    process.exit(0);
+};
+
+resetDatabase().catch((err) => {
+    console.log("ERROR: reset");
+    console.log(JSON.stringify(err));
+    process.exit(1);
 });

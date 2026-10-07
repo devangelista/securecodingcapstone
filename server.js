@@ -14,12 +14,8 @@ const app = express(); // Web framework to handle routing requests
 const routes = require("./app/routes");
 const { port, db, cookieSecret } = require("./config/config"); // Application config properties
 
-MongoClient.connect(db, (err, db) => {
-    if (err) {
-        console.log("Error: DB: connect");
-        console.log(err);
-        process.exit(1);
-    }
+MongoClient.connect(db).then((client) => {
+    const database = client.db();
     console.log(`Connected to the database`);
 
 
@@ -71,7 +67,7 @@ MongoClient.connect(db, (err, db) => {
     app.locals.marked = marked;
 
     // Application routes
-    routes(app, db);
+    routes(app, database);
 
     // Template system setup
     swig.setDefaults({
@@ -84,4 +80,8 @@ MongoClient.connect(db, (err, db) => {
         console.log(`Express http server listening on port ${port}`);
     });
 
+}).catch((err) => {
+    console.log("Error: DB: connect");
+    console.log(err);
+    process.exit(1);
 });

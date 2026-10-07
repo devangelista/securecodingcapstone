@@ -9,7 +9,12 @@ const envConf = require(path.resolve(__dirname + "/../config/env/" + finalEnv.to
 
 const config = { ...allConf, ...envConf }
 
+const printable = { ...config };
+["db", "cookieSecret", "cryptoKey"].forEach((key) => {
+    if (printable[key]) printable[key] = "[redacted]";
+});
+
 console.log(`Current Config:`)
-console.log(util.inspect(config, false, null))
+console.log(util.inspect(printable, false, null))
 
 module.exports = config;
